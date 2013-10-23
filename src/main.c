@@ -8,17 +8,29 @@
  * Build: gcc -Wall -I../h -I/opt/vc/include -I/opt/vc/include/interface/vcos/pthreads -I../lib/openvg -I/usr/include -o "%e" "%f" ../lib/openvg/libshapes.o ../lib/openvg/oglinit.o -L/opt/vc/lib -lGLESv2 -ljpeg
  * 
  */
- #include <stdlib.h>
- #include "SPI_control.h"
+#include <stdlib.h>
+#include "MCP3008.h"
  
- int main() {
-	 printf("Opening SPI Device 0...\n");
-	 SPIc_open(0);
+int main() {
+	int i = 20;
+	int test;
+	
+	printf("Opening MCP3008 Device 0... ");
+	MCP3008_OPEN(0,1);
+	printf("Done!\n");
+	
+	do {
+		test = MCP3008_SingleEndedRead(0);
+		printf("OUTPUT: %d\n", test);
+		sleep (1);
+		i--;
+	} while (1);
 	 
-	 printf("Closing SPI Device 0...\n");
-	 SPIc_close(0);
-	 
-	 printf("Exit Success!\n");
-	 exit(0);
- }
+	printf("Closing MCP3008 Device 0... ");
+	MCP3008_CLOSE(0);
+	printf("Done!\n");
+	
+	printf("Success!\n");
+	exit(0);
+}
  

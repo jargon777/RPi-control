@@ -22,7 +22,7 @@ unsigned int spi_speed;
 /*************************************************/
 // for device, 0 = cs0 and 1 = cs1
 
-int SPIc_open (unsigned char device) {
+int SPIc_open (unsigned char device, unsigned int speed) {
 	int status_value = -1;
 	int *spi_cs_fd;
 	
@@ -33,7 +33,9 @@ int SPIc_open (unsigned char device) {
     //SPI_MODE_3 (1,1) 	CPOL=1 (Clock Idle high level), CPHA=1 (SDO transmit/change edge idle to active)
     spi_mode = SPI_MODE_0;
     spi_bitsPerWord = 8;
-    spi_speed = 1000000;  //1MHZ = 1E6
+    
+    if (!speed) spi_speed = 500000;  //1MHZ = 1E6; speed can be 0.5, 1, 2, 4, 8, 16, 32
+    else spi_speed = speed*1000000;
     
     if (!device) spi_cs_fd = &spi_cs0_fd;
 	else spi_cs_fd = &spi_cs1_fd;
