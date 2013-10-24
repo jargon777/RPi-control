@@ -18,7 +18,7 @@
 	}
 	if (error_code==1) { //SPI Errors
 		printf("********************************************************************\n");
-		printf("*** SPI-RELATED ERROR in %s, the program must stop. ***\n", file_name);
+		printf("*** I/O ERROR in %s, the program must stop. ***\n", file_name);
 		printf("********************************************************************\n");
 		printf("*** %s\n", error_text);
 		exit(1);

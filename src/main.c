@@ -10,27 +10,14 @@
  */
 #include <stdlib.h>
 #include "MCP3008.h"
+#include "RPi_general.h"
  
-int main() {
-	int i = 20;
-	int test;
+int main() {	
+	RPi_construct(); //general function for starting tasks
 	
-	printf("Opening MCP3008 Device 0... ");
-	MCP3008_OPEN(0,1);
-	printf("Done!\n");
+	RPi_generaltest();
 	
-	do {
-		test = MCP3008_SingleEndedRead(0);
-		printf("OUTPUT: %d\n", test);
-		sleep (1);
-		i--;
-	} while (1);
-	 
-	printf("Closing MCP3008 Device 0... ");
-	MCP3008_CLOSE(0);
-	printf("Done!\n");
-	
-	printf("Success!\n");
+	RPi_destruct(); //general function for ending tasks
 	exit(0);
 }
  
