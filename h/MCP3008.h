@@ -1,3 +1,8 @@
+/* Interactor for the MCP3008.h
+ * layer ontp of the SPI_control file to interact specifically with the MCP3008.
+ * 
+ * Version 0.1
+ */
 #ifndef MCP3008_h
 #define MCP3008_h
 

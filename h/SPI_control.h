@@ -1,5 +1,13 @@
 /* SPI HEADER
  * Based off of: http://www.raspberry-projects.com/pi/programming-in-c/spi/using-the-spi-interface
+ * This file contains a number of functions to interact with the SPI bus and any device attached.
+ * The RPi has only two SPI channels.
+ * Contains the following functions:
+ *  SPIc_open: Opens the SPI port
+ *  SPIc_close: Closes the SPI port
+ *  SPIc_rdwr: simultaneously sends and recieves data from the SPI device.
+ * 
+ * Version 0.1
  */
 
 #ifndef SPI_CONTROL

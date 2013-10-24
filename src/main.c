@@ -10,16 +10,17 @@
  */
 #include <stdlib.h>
 #include "RPi_general.h"
-float temp_therm1;
-float volt_therm1;
-float resi_therm1;
+
+struct Thermistor thermistor1;
+struct Thermistor thermistor2;
+struct Humistor humistor1;
 
 int main() {	
 	RPi_construct(); //general function for starting tasks
 	do {
-		RPi_ADCread_tmphumid(&temp_therm1, &volt_therm1, &resi_therm1);
-		printf("DATA: %f\n", temp_therm1);
-		sleep(2);
+		RPi_ADCread_tmphumid(&thermistor1, &thermistor2, &humistor1);
+		printf("T1: %fC   T2: %fC\n", thermistor1.temperature, thermistor2.temperature);
+		sleep(3);
 	} while (!kbhit());
 	
 	RPi_destruct(); //general function for ending tasks

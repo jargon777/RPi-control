@@ -1,5 +1,15 @@
 /* GPIO Control
  * based on http://elinux.org/RPi_Low-level_peripherals#C_2
+ * This header file contains commands to interact with the GPIO. The functions in this file
+ * do the same basic tasks that a user can do from the command prompt to control the GPIO.
+ * Contains the following functions:
+ *  GPIOexport: sets up the GPIO pin so that it can be used. 
+ *  GPIOunexport: closes the GPIO pin after use is done.
+ *  GPIOdirection: sets whether the pin is an in or out pin.
+ *  GPIOread: reads the status of the pin.
+ *  GPIOwrite: sends a high or low signal out the GPIO.
+ * 
+ * Version 0.1
  */
 
 #ifndef RPi_GPIO
