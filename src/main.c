@@ -9,13 +9,18 @@
  * 
  */
 #include <stdlib.h>
-#include "MCP3008.h"
 #include "RPi_general.h"
- 
+float temp_therm1;
+float volt_therm1;
+float resi_therm1;
+
 int main() {	
 	RPi_construct(); //general function for starting tasks
-	
-	RPi_generaltest();
+	do {
+		RPi_ADCread_tmphumid(&temp_therm1, &volt_therm1, &resi_therm1);
+		printf("DATA: %f\n", temp_therm1);
+		sleep(2);
+	} while (!kbhit());
 	
 	RPi_destruct(); //general function for ending tasks
 	exit(0);

@@ -5,6 +5,7 @@
 //INCLUDES
 #include <unistd.h>
 #include "GPIO.h"
+#include "MCP3008.h"
 
 //DEFINES
 #define SENSOR_GPIOPIN 25
@@ -38,18 +39,38 @@ void RPi_destruct() {
 	printf("Done!\n");
 }
 
-float * RPi_readtemp() {
-	static float data[1];
-	do {
-		test = MCP3008_SingleEndedRead(0);
-		printf("OUTPUT: %d\n", test);
-		sleep (1);
-	} while (1);
-	return data;
+void RPi_ADCread_tmphumid(float *temperature_estimate, float *voltage, float *resistance) {
+	static int data;
+	float ratio;
+	//get the data
+	SENSORS_ON
+	sleep(1);
+	data = MCP3008_SingleEndedRead(THERMISTOR1_CH);
+	SENSORS_OFF
+	
+	*voltage = (data*3.3)/1024;
+	*resistance = ((1024.0/data - 1.0)*5000);
+	ratio = *resistance/10000;
+	printf("FUNCTION: %fV %fR %f %d \n", *voltage, *resistance, ratio, data);
+	*temperature_estimate = 0;
 }
 
 void RPi_generaltest() {
 	SENSORS_ON
-	sleep(5);
+	sleep(1);
 	SENSORS_OFF
+	sleep(1);
+}
+
+//keyboard hit detection function from http://cc.byexamples.com/2007/04/08/non-blocking-user-input-in-loop-without-ncurses/
+int kbhit()
+{
+    struct timeval tv;
+    fd_set fds;
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds); //STDIN_FILENO is 0
+    select(STDIN_FILENO+1, &fds, NULL, NULL, &tv);
+    return FD_ISSET(STDIN_FILENO, &fds);
 }
