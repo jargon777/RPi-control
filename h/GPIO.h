@@ -80,13 +80,26 @@ void GPIOread(unsigned char GPIOpin) {
 }
 
 void GPIOwrite(unsigned char GPIOpin, unsigned char value) {
+	unsigned char attempts = 0;
 	static const char s_values_str[] = "01";
 	char path[VALUE_MAX];
 	int afile;
 	
 	snprintf(path, VALUE_MAX, "/sys/class/gpio/gpio%d/value", GPIOpin);
 	afile = open(path, O_WRONLY);
-	if (afile < 0) ge_halt(1, "GPIO.h", "Unable to open GPIO for writing!");
+	if (afile < 0) {
+		ge_warn(1, "GPIO.h", "Unable to open GPIO for writing! Retrying...");
+		usleep(50000); //temporarily suspend to hopefully mitigate error
+		printf("Retrying on pin %u... \n", GPIOpin);
+		for (attempts = 0; attempts <= 5; attempts++) {
+			printf("%u... \n", attempts);
+			snprintf(path, VALUE_MAX, "/sys/class/gpio/gpio%d/value", GPIOpin);
+			afile = open(path, O_WRONLY);
+			if (!(afile < 0)) break;
+		}
+		ge_halt(1, "GPIO.h", "Failed to set GPIO for writing! Halting.");
+		
+	}
 	if (write(afile, &s_values_str[OFF == value ? 0 : 1], 1) < 0) ge_halt(1, "GPIO.h", "Unable to write GPIO!");
 }
 
