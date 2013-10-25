@@ -17,7 +17,7 @@
 #define RESET_PIN 24
 
 #define THERMISTOR1_CH 0
-#define THERMISTOR1_R1 5000
+#define THERMISTOR1_R1 10000
 #define THERMISTOR2_CH 1
 #define THERMISTOR2_R1 200
 
@@ -89,19 +89,11 @@ void RPi_destruct() {
 }
 
 void RPi_ADCread_tmphumid(struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct Humistor *humistor1) {	
-	struct timespec sleep_time;
-		sleep_time.tv_sec = HUMISTOR_SLPSEC;
-		sleep_time.tv_nsec = HUMISTOR_SLPNSC * HUMISTOR_CRCNSC;  //APPLY A CORRECTION FACTOR TO COMPENSATE FOR RASPI TIME LOSSES
 	/************************************************************/
 	/******** READ DATA FROM SENSORS ****************************/
 	/************************************************************/
-	RESET_CAPACITORS
 	SENSORS_ON
-	//get measurements of temperature
-	(*humistor1).ADC_initial = MCP3008_SingleEndedRead(HUMISTOR_CH); //store the initial voltage at humistor (should be zero)
-	clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep_time, NULL);
-	(*humistor1).ADC = MCP3008_SingleEndedRead(HUMISTOR_CH);
-	
+	//get measurements of temperature	
 	(*thermistor1).ADC = MCP3008_SingleEndedRead(THERMISTOR1_CH);
 	(*thermistor2).ADC = MCP3008_SingleEndedRead(THERMISTOR2_CH);
 	SENSORS_OFF
@@ -121,21 +113,13 @@ void RPi_ADCread_tmphumid(struct Thermistor *thermistor1, struct Thermistor *the
 	printf("|| THERM2: %.2fV %.2fR %.2f %d\n", (*thermistor2).voltage, (*thermistor2).resistance, 1/(*thermistor2).ratio, (*thermistor2).ADC);
 	(*thermistor2).temperature = ( 298.15 * 3200 / log( (*thermistor2).ratio ) ) / ( 3200 / log( (*thermistor2).ratio ) - 298.15 ) - 273.15;
 	
-	/************************************************************/
-	/************** PROCESS DATA FROM HUMIDITY SENSOR ***********/
-	/************************************************************/
-	(*humistor1).voltage_initial = ((*humistor1).ADC_initial*REF_VOLTAGE)/1024;
-	(*humistor1).voltage = ((*humistor1).ADC*REF_VOLTAGE)/1024;
-	//(*humistor1).capacitance_uf = (sleep_time.tv_sec * 1000000 + sleep_time.tv_nsec/1000) / 
-	//	(-log((REF_VOLTAGE - ((*humistor1).voltage)) / REF_VOLTAGE) * (float)HUMISTOR_R1);
-	(*humistor1).capacitance_pf = (sleep_time.tv_nsec*1000) / 
-		(-log((REF_VOLTAGE - ((*humistor1).voltage)) / REF_VOLTAGE) * (float)HUMISTOR_R1);
-	(*humistor1).humidex = ((*humistor1).capacitance_pf - 298) / 0.6;
-	printf("|| HUMIS1: %.2fVi %.2fVf %.1fpf %dADCi %dADC\n", (*humistor1).voltage_initial, (*humistor1).voltage, 
-		(*humistor1).capacitance_pf, (*humistor1).ADC_initial, (*humistor1).ADC);
 }
 
 void RPi_deprecated_humistor(struct Humistor *humistor1) {
+	struct timespec sleep_time;
+		sleep_time.tv_sec = HUMISTOR_SLPSEC;
+		sleep_time.tv_nsec = HUMISTOR_SLPNSC * HUMISTOR_CRCNSC;  //APPLY A CORRECTION FACTOR TO COMPENSATE FOR RASPI TIME LOSSES
+	printf("%lu", sleep_time.tv_nsec);
 	/*
 struct Humistor {
 	struct timespec start_meas;
@@ -189,6 +173,23 @@ struct Humistor {
 	clock_gettime(CLOCK_MONOTONIC, &((*humistor1).end_meas));
 	printf("%u.%u diff: %u\n", (unsigned int)(*humistor1).end_meas.tv_sec, (unsigned int)(*humistor1).end_meas.tv_nsec, ((unsigned int)(*humistor1).end_meas.tv_nsec-(unsigned int)(*humistor1).start_meas.tv_nsec));
 	*/	
+	
+	/* MORE DEPRECATED CODE:
+	(*humistor1).ADC_initial = MCP3008_SingleEndedRead(HUMISTOR_CH); //store the initial voltage at humistor (should be zero)
+	clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep_time, NULL);
+	(*humistor1).ADC = MCP3008_SingleEndedRead(HUMISTOR_CH);
+	
+	//calcs the data
+	(*humistor1).voltage_initial = ((*humistor1).ADC_initial*REF_VOLTAGE)/1024;
+	(*humistor1).voltage = ((*humistor1).ADC*REF_VOLTAGE)/1024;
+	//(*humistor1).capacitance_uf = (sleep_time.tv_sec * 1000000 + sleep_time.tv_nsec/1000) / 
+	//	(-log((REF_VOLTAGE - ((*humistor1).voltage)) / REF_VOLTAGE) * (float)HUMISTOR_R1);
+	(*humistor1).capacitance_pf = (sleep_time.tv_nsec*1000) / 
+		(-log((REF_VOLTAGE - ((*humistor1).voltage)) / REF_VOLTAGE) * (float)HUMISTOR_R1);
+	(*humistor1).humidex = ((*humistor1).capacitance_pf - 298) / 0.6;
+	printf("|| HUMIS1: %.2fVi %.2fVf %.1fpf %dADCi %dADC\n", (*humistor1).voltage_initial, (*humistor1).voltage, 
+		(*humistor1).capacitance_pf, (*humistor1).ADC_initial, (*humistor1).ADC); 
+	*/
 }
 
 void RPi_generaltest() {

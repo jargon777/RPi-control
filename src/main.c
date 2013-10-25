@@ -17,7 +17,7 @@ int main() {
 	RPi_construct(); //general function for starting tasks
 	do {
 		RPi_ADCread_tmphumid(&thermistor1, &thermistor2, &humistor1);
-		printf("T1: %.2fC   T2: %.2fC   H1: %.2f%%RH\n", thermistor1.temperature, thermistor2.temperature, humistor1.humidex);
+		printf("T1: %.2fC   T2: %.2fC\n", thermistor1.temperature, thermistor2.temperature);
 		sleep(2);
 	} while (!kbhit());
 	
