@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <time.h>
+#include <stdio.h>
 #include "GPIO.h"
 #include "MCP3008.h"
 
@@ -88,7 +89,7 @@ void RPi_destruct() {
 	printf("Done!\n");
 }
 
-void RPi_ADCread_tmphumid(struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct Humistor *humistor1) {	
+void RPi_ADCread_sensors(struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct Humistor *humistor1) {	
 	/************************************************************/
 	/******** READ DATA FROM SENSORS ****************************/
 	/************************************************************/
@@ -113,6 +114,19 @@ void RPi_ADCread_tmphumid(struct Thermistor *thermistor1, struct Thermistor *the
 	printf("|| THERM2: %.2fV %.2fR %.2f %d\n", (*thermistor2).voltage, (*thermistor2).resistance, 1/(*thermistor2).ratio, (*thermistor2).ADC);
 	(*thermistor2).temperature = ( 298.15 * 3200 / log( (*thermistor2).ratio ) ) / ( 3200 / log( (*thermistor2).ratio ) - 298.15 ) - 273.15;
 	
+}
+
+void RPi_USBread(int USBdev) {
+	printf("USB\n");
+	char path[30];
+	int afile;
+	char value_str[30];
+	snprintf(path, 30, "/dev/ttyUSB%d", USBdev);
+	afile = open(path, O_RDWR);
+	if (read(afile, value_str, 3) < 0) ge_warn(1, "RPi_general.h", "Unable to read from USB!!");
+	printf(value_str);
+	printf("USB Done\n");
+	close(afile);
 }
 
 void RPi_deprecated_humistor(struct Humistor *humistor1) {
