@@ -36,7 +36,7 @@
 		printf("** GENERAL WARNING in %s: %s", file_name, warn_text);
 	}
 	if (warn_code==1) { //SPI Errors
-		printf("*** I/O WARNING in %s, the program must stop. ***\n", file_name);
+		printf("*** I/O WARNING in %s, Program will proceed. ***\n", file_name);
 		printf("*** %s\n", warn_text);
 		exit(1);
 	}

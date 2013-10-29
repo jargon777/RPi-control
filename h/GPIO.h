@@ -96,8 +96,8 @@ void GPIOwrite(unsigned char GPIOpin, unsigned char value) {
 			snprintf(path, VALUE_MAX, "/sys/class/gpio/gpio%d/value", GPIOpin);
 			afile = open(path, O_WRONLY);
 			if (!(afile < 0)) break;
+			else if (attempts >= 5) ge_halt(1, "GPIO.h", "Failed to set GPIO for writing! Halting.");
 		}
-		ge_halt(1, "GPIO.h", "Failed to set GPIO for writing! Halting.");
 		
 	}
 	if (write(afile, &s_values_str[OFF == value ? 0 : 1], 1) < 0) ge_halt(1, "GPIO.h", "Unable to write GPIO!");
