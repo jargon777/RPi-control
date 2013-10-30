@@ -10,17 +10,23 @@
  */
 #include <stdlib.h>
 #include "RPi_general.h"
+
+#define GPS_USBID 0
 struct Thermistor thermistor1, thermistor2;
 struct Humistor humistor1;
+struct GPSdata GPS_1;
+long record_count;
 
 int main() {	
-	RPi_construct(); //general function for starting tasks
+	RPi_construct
+	(GPS_USBID); //general function for starting tasks
 	do {
+		printf("\nRECORD: %ld\n", record_count);
 		/**********************************************************************************/
 		/**************** READ THE DATA ***************************************************/
 		/**********************************************************************************/
+		RPi_USBGPSread(GPS_USBID, &GPS_1);
 		RPi_ADCread_sensors(&thermistor1, &thermistor2, &humistor1);
-		RPi_USBread(0);
 		
 		/**********************************************************************************/
 		/**************** OUTPUT THE DATA *************************************************/
@@ -31,6 +37,8 @@ int main() {
 		/**************** FINAL STEPS *****************************************************/
 		/**********************************************************************************/
 		sleep(2);
+		record_count++;
+		
 	} while (!kbhit());
 	
 	RPi_destruct(); //general function for ending tasks

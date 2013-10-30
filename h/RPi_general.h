@@ -9,6 +9,7 @@
 #include <math.h>
 #include <time.h>
 #include <stdio.h>
+#include <string.h>
 #include "GPIO.h"
 #include "MCP3008.h"
 
@@ -21,6 +22,8 @@
 #define THERMISTOR1_R1 10000
 #define THERMISTOR2_CH 1
 #define THERMISTOR2_R1 200
+
+#define GPSBAUD 19200
 
 #define HUMISTOR_CH 2
 #define HUMISTOR_R1 6200000
@@ -54,40 +57,22 @@ struct Humistor {
 	unsigned short ADC_initial;
 };
 
-//Things that the RPi must load at the start
-void RPi_construct() {
-	printf("Intializing... ");
-	
-	MCP3008_OPEN(THERMISTOR1_CH,MCP3008_SPD);
-	printf("MCP3008... ");
-	
-	GPIOexport(THERMISTORS_GPIOPIN); //enable GPIO pin for turning the sensors on and off
-	GPIOdirection(THERMISTORS_GPIOPIN, OUT);
-	printf("GPIO%d... ", THERMISTORS_GPIOPIN);
-	
-	GPIOexport(RESET_PIN);
-	GPIOdirection(RESET_PIN, OUT);
-	printf("GPIO%d... ", RESET_PIN);
-	
-	
-	printf("Done!\n");
-}
-
-//Things that the RPi must unload at the end
-void RPi_destruct() {
-	printf("Halting... ");
-	
-	MCP3008_CLOSE(THERMISTOR1_CH);
-	printf("MCP3008... ");
-	
-	GPIOunexport(THERMISTORS_GPIOPIN);
-	printf("GPIO%d... ", THERMISTORS_GPIOPIN);
-	
-	GPIOunexport(RESET_PIN);
-	printf("GPIO%d... ", RESET_PIN);
-	
-	printf("Done!\n");
-}
+struct GPSdata {
+	short longitude_d;
+	float longitude_m;
+	char longitude_dir;
+	short latitude_d;
+	float latitude_m;
+	char latitude_dir;
+	char fix_quality;
+	char num_sats;
+	float HDOP_acc;
+	float altitude_raw;
+	char altitude_rawUNIT;
+	float geoidal_sep; 
+	char geoidal_sepUNIT;
+	float actual_alt;
+};
 
 void RPi_ADCread_sensors(struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct Humistor *humistor1) {	
 	/************************************************************/
@@ -116,17 +101,130 @@ void RPi_ADCread_sensors(struct Thermistor *thermistor1, struct Thermistor *ther
 	
 }
 
-void RPi_USBread(int USBdev) {
-	printf("USB\n");
+unsigned char RPi_USBGPSset_time(char USBdev){
 	char path[30];
-	int afile;
-	char value_str[30];
+	char gpsbuffer[1024] = {0};
+	char cmd[30];
+	char time[9];
+	char date[9];
+	char *toks = NULL;
+	
 	snprintf(path, 30, "/dev/ttyUSB%d", USBdev);
-	afile = open(path, O_RDWR);
-	if (read(afile, value_str, 3) < 0) ge_warn(1, "RPi_general.h", "Unable to read from USB!!");
-	printf(value_str);
-	printf("USB Done\n");
-	close(afile);
+	FILE *fstream = fopen(path, "r");
+	while(!(fgets(gpsbuffer, 1024, fstream) == NULL)) {
+		printf(".");
+		if (gpsbuffer[0] == '$') {
+			if (memcmp(gpsbuffer+1, "GPRMC", 5) == 0) break;
+		}
+	}
+	toks = strtok(gpsbuffer, ","); //tokenize the string. First token is the GPS flag
+	toks = strtok(NULL, ","); //next token is Zulu time. Process it!
+	if (toks != NULL) {
+		time[0] = toks[0];
+		time[1] = toks[1];
+		time[2] = ':';
+		time[3] = toks[2];
+		time[4] = toks[3];
+		time[5] = ':';
+		time[6] = toks[4];
+		time[7] = toks[5];
+		time[8] = '\0';
+	}
+	else return 0;
+	
+	toks = strtok(NULL, ","); //next token is vakuduty
+	toks = strtok(NULL, ","); //next token is latitude may be of use later for first fix
+	toks = strtok(NULL, ","); //next token is N/S
+	toks = strtok(NULL, ","); //next token is longitude
+	toks = strtok(NULL, ","); //next token is E/W
+	toks = strtok(NULL, ","); //next token is knots
+	toks = strtok(NULL, ","); //next token is course
+	toks = strtok(NULL, ","); //next token is date
+	if (toks != NULL) {
+		date[0] = '2';
+		date[1] = '0';
+		date[2] = toks[4];
+		date[3] = toks[5];
+		date[4] = toks[2];
+		date[5] = toks[3];
+		date[6] = toks[0];
+		date[7] = toks[1];
+		date[8] = '\0';
+	}
+	else return 0;
+	printf("\n\nDATE:\n");
+	sprintf(cmd, "date +%%Y%%m%%d -s \"%s\"", date);
+	system(cmd);
+	printf("\nTIME:\n");
+	sprintf(cmd, "date +%%H:%%M:%%S -s \"%s\"", time);
+	system(cmd);
+	printf("\n");
+	fclose(fstream);
+	return 1;
+}
+
+void RPi_USBGPSread(char USBdev, struct GPSdata *GPS_dev) {
+	char path[30];
+	char gpsbuffer[1024] = {0};
+	char *toks = NULL;
+	unsigned char attempts = 0;
+	
+	snprintf(path, 30, "/dev/ttyUSB%d", USBdev);
+	FILE *fstream = fopen(path, "r");
+	
+	if (fstream == NULL) {
+		ge_warn(1, "GPIO.h", "Unable to open GPS port for reading! Retrying...");
+		usleep(50000); //temporarily suspend to hopefully mitigate error
+		printf("Retrying on USB%d... \n", USBdev);
+		for (attempts = 0; attempts <= 5; attempts++) {
+			printf("%u... \n", attempts);
+			FILE *fstream = fopen(path, "r");
+			if (!(fstream == NULL)) break;
+			else if (attempts >= 5) ge_halt(1, "GPIO.h", "Failed to read GPS. HALTING");
+			usleep(50000); //temporarily suspend to hopefully mitigate error
+		}
+	}
+	
+	while(!(fgets(gpsbuffer, 1024, fstream) == NULL)) {
+		if (gpsbuffer[0] == '$') {
+			if (memcmp(gpsbuffer+1, "GPGGA", 5) == 0) break;
+		}
+	}
+	toks = strtok(gpsbuffer, ","); //tokenize the string. First token is the GPS flag
+	toks = strtok(NULL, ","); //next token is time
+	toks = strtok(NULL, ","); //next token is latitude
+	if (toks != NULL) {
+		(*GPS_dev).latitude_d = (int)(atoi(toks) / 100); //truncate the minutes off the degrees
+		(*GPS_dev).latitude_m = (atof(toks) - (*GPS_dev).latitude_d * 100); //remove the degrees off the minutes
+	}
+	toks = strtok(NULL, ","); //next token is latitude direction char
+	if (toks != NULL) (*GPS_dev).latitude_dir = toks[0];
+	toks = strtok(NULL, ","); //next token is longitude
+	if (toks != NULL) {
+		(*GPS_dev).longitude_d = (int)(atoi(toks) / 100); //truncate the minutes off the degrees
+		(*GPS_dev).longitude_m = (atof(toks) - (*GPS_dev).longitude_d * 100); //remove the degrees off the minutes
+	}
+	toks = strtok(NULL, ","); //next token is longitude direction char
+	if (toks != NULL) (*GPS_dev).longitude_dir = toks[0];
+	toks = strtok(NULL, ","); //next token is quality
+	if (toks != NULL) (*GPS_dev).fix_quality = atoi(toks);
+	toks = strtok(NULL, ","); //next token is number of satalites
+	if (toks != NULL) (*GPS_dev).num_sats = atoi(toks);
+	toks = strtok(NULL, ","); //next token is HDOP
+	if (toks != NULL) (*GPS_dev).HDOP_acc = atoi(toks);
+	toks = strtok(NULL, ","); //next token is Raw Altitude
+	if (toks != NULL) (*GPS_dev).altitude_raw = atof(toks);
+	toks = strtok(NULL, ","); //next token is Raw Altitude unit
+	if (toks != NULL) (*GPS_dev).altitude_rawUNIT = toks[0];
+	toks = strtok(NULL, ","); //next token is Geoidal Separation
+	if (toks != NULL) (*GPS_dev).geoidal_sep = atof(toks);
+	toks = strtok(NULL, ","); //next token is Geoidal separation unit
+	if (toks != NULL) (*GPS_dev).geoidal_sepUNIT = toks[0];
+	
+	(*GPS_dev).actual_alt = ((*GPS_dev).altitude_raw + (*GPS_dev).geoidal_sep);
+	printf("|| GPS1:  LAT:%dd %.2fm%c  LNG:%dd %.2fm%c  ALT:%.2f%c  SATS:%d  QUAL:%d\n", (*GPS_dev).latitude_d, (*GPS_dev).latitude_m, (*GPS_dev).latitude_dir, (*GPS_dev).longitude_d, 
+		(*GPS_dev).longitude_m, (*GPS_dev).longitude_dir, (*GPS_dev).actual_alt, (*GPS_dev).altitude_rawUNIT, (*GPS_dev).num_sats, (*GPS_dev).fix_quality);
+	fclose(fstream);
 }
 
 void RPi_deprecated_humistor(struct Humistor *humistor1) {
@@ -224,4 +322,54 @@ int kbhit()
     FD_SET(STDIN_FILENO, &fds); //STDIN_FILENO is 0
     select(STDIN_FILENO+1, &fds, NULL, NULL, &tv);
     return FD_ISSET(STDIN_FILENO, &fds);
+}
+
+//Things that the RPi must load at the start
+void RPi_construct(char USBdev) {
+	char cmd[30];
+	char status;
+	printf("Intializing... \n");
+	
+	printf("MCP3008... ");
+	MCP3008_OPEN(THERMISTOR1_CH,MCP3008_SPD);
+	printf("Success!\n");
+	
+	printf("GPIO%d... ", THERMISTORS_GPIOPIN);
+	GPIOexport(THERMISTORS_GPIOPIN); //enable GPIO pin for turning the sensors on and off
+	GPIOdirection(THERMISTORS_GPIOPIN, OUT);
+	printf("Success!\n");
+	
+	printf("GPIO%d... ", RESET_PIN);
+	GPIOexport(RESET_PIN);
+	GPIOdirection(RESET_PIN, OUT);
+	printf("Success!\n");
+	
+	printf("USB on ttyUSB%d... ", USBdev);
+	sprintf(cmd, "stty -F /dev/ttyUSB%d %d sane", USBdev, GPSBAUD); //ensure that the gps is setup correctly.
+	system(cmd);
+	printf("Baud: 4800... Output type: sane... Success!\n");
+	
+	printf("Waiting for GPS signal.");
+	do {
+		 status = (RPi_USBGPSset_time(USBdev));
+	} while (status == 0);
+	printf("Date and Time updated!\n");
+	
+	printf("\nSetup complete!\n\n");
+}
+
+//Things that the RPi must unload at the end
+void RPi_destruct() {
+	printf("Halting... ");
+	
+	MCP3008_CLOSE(THERMISTOR1_CH);
+	printf("MCP3008... ");
+	
+	GPIOunexport(THERMISTORS_GPIOPIN);
+	printf("GPIO%d... ", THERMISTORS_GPIOPIN);
+	
+	GPIOunexport(RESET_PIN);
+	printf("GPIO%d... ", RESET_PIN);
+	
+	printf("Done!\n");
 }
