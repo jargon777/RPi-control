@@ -2,6 +2,7 @@
  * General functions, macros etc.
  * Theory for thermistors: http://www.daycounter.com/Calculators/Steinhart-Hart-Thermistor-Calculator.phtml and http://www.maximintegrated.com/app-notes/index.mvp/id/1753 and http://www.paulschow.com/2013/08/monitoring-temperatures-using-raspberry.html
  * Theory for capacitance: https://en.wikipedia.org/wiki/RC_time_constant
+ * Theory for GPS Error: http://www.trakgps.com/en/index.php/information/gps-articles-information/65-gps-accuracy
  */
 
 //INCLUDES
@@ -152,13 +153,13 @@ unsigned char RPi_USBGPSset_time(char USBdev){
 		date[8] = '\0';
 	}
 	else return 0;
-	printf("\n\nDATE:\n");
+	printf("\n==============SET==============\nDATE:\n");
 	sprintf(cmd, "date +%%Y%%m%%d -s \"%s\"", date);
 	system(cmd);
-	printf("\nTIME:\n");
+	printf("TIME:\n");
 	sprintf(cmd, "date +%%H:%%M:%%S -s \"%s\"", time);
 	system(cmd);
-	printf("\n");
+	printf("===============================\n");
 	fclose(fstream);
 	return 1;
 }
@@ -167,22 +168,13 @@ void RPi_USBGPSread(char USBdev, struct GPSdata *GPS_dev) {
 	char path[30];
 	char gpsbuffer[1024] = {0};
 	char *toks = NULL;
-	unsigned char attempts = 0;
 	
 	snprintf(path, 30, "/dev/ttyUSB%d", USBdev);
 	FILE *fstream = fopen(path, "r");
 	
 	if (fstream == NULL) {
 		ge_warn(1, "GPIO.h", "Unable to open GPS port for reading! Retrying...");
-		usleep(50000); //temporarily suspend to hopefully mitigate error
-		printf("Retrying on USB%d... \n", USBdev);
-		for (attempts = 0; attempts <= 5; attempts++) {
-			printf("%u... \n", attempts);
-			FILE *fstream = fopen(path, "r");
-			if (!(fstream == NULL)) break;
-			else if (attempts >= 5) ge_halt(1, "GPIO.h", "Failed to read GPS. HALTING");
-			usleep(50000); //temporarily suspend to hopefully mitigate error
-		}
+		return;
 	}
 	
 	while(!(fgets(gpsbuffer, 1024, fstream) == NULL)) {
@@ -222,8 +214,9 @@ void RPi_USBGPSread(char USBdev, struct GPSdata *GPS_dev) {
 	if (toks != NULL) (*GPS_dev).geoidal_sepUNIT = toks[0];
 	
 	(*GPS_dev).actual_alt = ((*GPS_dev).altitude_raw + (*GPS_dev).geoidal_sep);
-	printf("|| GPS1:  LAT:%dd %.2fm%c  LNG:%dd %.2fm%c  ALT:%.2f%c  SATS:%d  QUAL:%d\n", (*GPS_dev).latitude_d, (*GPS_dev).latitude_m, (*GPS_dev).latitude_dir, (*GPS_dev).longitude_d, 
-		(*GPS_dev).longitude_m, (*GPS_dev).longitude_dir, (*GPS_dev).actual_alt, (*GPS_dev).altitude_rawUNIT, (*GPS_dev).num_sats, (*GPS_dev).fix_quality);
+	printf("|| GPS1: LT:%dd%.2f'%c LG:%dd%.2f'%c AT:%.2f%c SAT:%d QUA:%d HDOP:%.2f\n", (*GPS_dev).latitude_d, (*GPS_dev).latitude_m, 
+	(*GPS_dev).latitude_dir, (*GPS_dev).longitude_d, (*GPS_dev).longitude_m, (*GPS_dev).longitude_dir, (*GPS_dev).actual_alt, 
+	(*GPS_dev).altitude_rawUNIT, (*GPS_dev).num_sats, (*GPS_dev).fix_quality, (*GPS_dev).HDOP_acc);
 	fclose(fstream);
 }
 
@@ -328,7 +321,27 @@ int kbhit()
 void RPi_construct(char USBdev) {
 	char cmd[30];
 	char status;
+	char upath[30];
+	FILE *fstream;
 	printf("Intializing... \n");
+	
+	printf("USB on ttyUSB%d... ", USBdev);
+	snprintf(upath, 30, "/dev/ttyUSB%d", USBdev);
+	do {
+		fstream = fopen(upath, "r");
+		if (fstream == NULL) printf("Failed to access GPS on %s! Check GPS! \n", upath);
+		else break;
+		sleep(2);
+	} while (fstream == NULL);
+	sprintf(cmd, "stty -F /dev/ttyUSB%d %d sane \n", USBdev, GPSBAUD); //ensure that the gps is setup correctly.
+	system(cmd);
+	printf("Baud: %d... Output type: sane... Success!\n", GPSBAUD);
+	
+	printf("Waiting for GPS lock.");
+	do {
+		 status = (RPi_USBGPSset_time(USBdev));
+	} while (status == 0);
+	printf("Date and Time updated!\n\n");
 	
 	printf("MCP3008... ");
 	MCP3008_OPEN(THERMISTOR1_CH,MCP3008_SPD);
@@ -343,17 +356,6 @@ void RPi_construct(char USBdev) {
 	GPIOexport(RESET_PIN);
 	GPIOdirection(RESET_PIN, OUT);
 	printf("Success!\n");
-	
-	printf("USB on ttyUSB%d... ", USBdev);
-	sprintf(cmd, "stty -F /dev/ttyUSB%d %d sane", USBdev, GPSBAUD); //ensure that the gps is setup correctly.
-	system(cmd);
-	printf("Baud: 4800... Output type: sane... Success!\n");
-	
-	printf("Waiting for GPS signal.");
-	do {
-		 status = (RPi_USBGPSset_time(USBdev));
-	} while (status == 0);
-	printf("Date and Time updated!\n");
 	
 	printf("\nSetup complete!\n\n");
 }
