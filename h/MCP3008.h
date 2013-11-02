@@ -7,8 +7,8 @@
 #define MCP3008_h
 
 #include "SPI_control.h"
-#define MCP3008_OPEN(id, spd) SPIc_open(id, spd);
-#define MCP3008_CLOSE(id) SPIc_close(id);
+#define MCP3008_OPEN(id, spd) SPIc_open(id, spd)
+#define MCP3008_CLOSE(id) SPIc_close(id)
 
 int MCP3008_SingleEndedRead (unsigned char SPIchannel) {
     int result = 0;

@@ -24,7 +24,6 @@ int main() {
     char s[3];
 
     init(&width, &height);                  // Graphics initialization
-
     Start(width, height);                   // Start the picture
     Background(0, 0, 0);                    // Black background
     Fill(44, 77, 232, 1);                   // Big blue marble

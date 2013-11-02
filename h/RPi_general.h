@@ -5,17 +5,25 @@
  * Theory for GPS Error: http://www.trakgps.com/en/index.php/information/gps-articles-information/65-gps-accuracy
  */
 
+//INCLUDE BLOCK 
+#ifndef RPi_GENERALHEADER
+#define RPi_GENERALHEADER
+
 //INCLUDES
 #include <unistd.h>
 #include <math.h>
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include "RPi_generror.h"
+#include "RPi_USBGPS.h"
 #include "GPIO.h"
 #include "MCP3008.h"
+#include "NAU7802.h"
 
 //DEFINES
-#define REF_VOLTAGE 3.3
+#define REF_VOLTAGE 2.6
+#define NAU7802_REFVOLTS 3.3
 #define THERMISTORS_GPIOPIN 25
 #define RESET_PIN 24
 
@@ -23,8 +31,11 @@
 #define THERMISTOR1_R1 10000
 #define THERMISTOR2_CH 1
 #define THERMISTOR2_R1 200
+#define MQ7_1CH 2
+#define MQ7_1R1 33000
+#define MQ7_1Ro 10000
 
-#define GPSBAUD 19200
+#define GPSBAUD 4800
 
 #define HUMISTOR_CH 2
 #define HUMISTOR_R1 6200000
@@ -32,7 +43,7 @@
 #define HUMISTOR_SLPNSC 2000000
 #define HUMISTOR_CRCNSC 0.935946 //calibrated to a 270pf capacitor
 
-#define MCP3008_SPD 1
+#define MCP3008_SPD 10 //
 
 //MACROS
 #define SENSORS_ON GPIOwrite(THERMISTORS_GPIOPIN, ON);
@@ -45,7 +56,15 @@ struct Thermistor {
 	float resistance;
 	float voltage;
 	float ratio;
-	unsigned short ADC;
+	unsigned int ADC;
+};
+
+struct GasSensor {
+	float PPM;
+	float resistance;
+	float voltage;
+	float ratio;
+	unsigned int ADC;
 };
 
 struct Humistor {
@@ -58,24 +77,9 @@ struct Humistor {
 	unsigned short ADC_initial;
 };
 
-struct GPSdata {
-	short longitude_d;
-	float longitude_m;
-	char longitude_dir;
-	short latitude_d;
-	float latitude_m;
-	char latitude_dir;
-	char fix_quality;
-	char num_sats;
-	float HDOP_acc;
-	float altitude_raw;
-	char altitude_rawUNIT;
-	float geoidal_sep; 
-	char geoidal_sepUNIT;
-	float actual_alt;
-};
-
-void RPi_ADCread_sensors(struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct Humistor *humistor1) {	
+void RPi_ADCread_sensors(struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct Thermistor *thermistor3,
+							struct GasSensor *MQ7_1, struct Humistor *humistor1) {	
+	int Ref_Voltage;
 	/************************************************************/
 	/******** READ DATA FROM SENSORS ****************************/
 	/************************************************************/
@@ -83,6 +87,9 @@ void RPi_ADCread_sensors(struct Thermistor *thermistor1, struct Thermistor *ther
 	//get measurements of temperature	
 	(*thermistor1).ADC = MCP3008_SingleEndedRead(THERMISTOR1_CH);
 	(*thermistor2).ADC = MCP3008_SingleEndedRead(THERMISTOR2_CH);
+	(*MQ7_1).ADC = MCP3008_SingleEndedRead(MQ7_1CH);
+	//(*thermistor3).ADC = NAU7802_ReadADCTMP();
+	//Ref_Voltage = NAU7802_ReadADC();
 	SENSORS_OFF
 	
 	/************************************************************/
@@ -94,214 +101,30 @@ void RPi_ADCread_sensors(struct Thermistor *thermistor1, struct Thermistor *ther
 	printf("|| THERM1: %.2fV %.2fR %.2f %d\n", (*thermistor1).voltage, (*thermistor1).resistance, 1/(*thermistor1).ratio, (*thermistor1).ADC);
 	(*thermistor1).temperature = ( 298.15 * 4300 / log( (*thermistor1).ratio ) ) / ( 4300 / log( (*thermistor1).ratio ) - 298.15 ) - 273.15;
 	
-	(*thermistor2).voltage = ((*thermistor2).ADC*3.3)/1024;
+	(*thermistor2).voltage = ((*thermistor2).ADC*REF_VOLTAGE)/1024;
 	(*thermistor2).resistance = ((1024.0/(*thermistor2).ADC - 1.0)*THERMISTOR2_R1);
 	(*thermistor2).ratio = 100 / (*thermistor2).resistance;
 	printf("|| THERM2: %.2fV %.2fR %.2f %d\n", (*thermistor2).voltage, (*thermistor2).resistance, 1/(*thermistor2).ratio, (*thermistor2).ADC);
 	(*thermistor2).temperature = ( 298.15 * 3200 / log( (*thermistor2).ratio ) ) / ( 3200 / log( (*thermistor2).ratio ) - 298.15 ) - 273.15;
 	
-}
-
-unsigned char RPi_USBGPSset_time(char USBdev){
-	char path[30];
-	char gpsbuffer[1024] = {0};
-	char cmd[30];
-	char time[9];
-	char date[9];
-	char *toks = NULL;
+	(*thermistor3).voltage = ((*thermistor3).ADC*NAU7802_REFVOLTS)/16777.216;
+	(*thermistor3).resistance = 0;
+	(*thermistor3).ratio = 1;
+	printf("|| THERM2: %.2fV %.2fR %.2f %d\n", (*thermistor3).voltage, (*thermistor3).resistance, 1/(*thermistor3).ratio, (*thermistor3).ADC);
+	(*thermistor3).temperature = 0; //(((*thermistor3).voltage - 109 )/ 0.360) + 25;
 	
-	snprintf(path, 30, "/dev/ttyUSB%d", USBdev);
-	FILE *fstream = fopen(path, "r");
-	while(!(fgets(gpsbuffer, 1024, fstream) == NULL)) {
-		printf(".");
-		if (gpsbuffer[0] == '$') {
-			if (memcmp(gpsbuffer+1, "GPRMC", 5) == 0) break;
-		}
-	}
-	toks = strtok(gpsbuffer, ","); //tokenize the string. First token is the GPS flag
-	toks = strtok(NULL, ","); //next token is Zulu time. Process it!
-	if (toks != NULL) {
-		time[0] = toks[0];
-		time[1] = toks[1];
-		time[2] = ':';
-		time[3] = toks[2];
-		time[4] = toks[3];
-		time[5] = ':';
-		time[6] = toks[4];
-		time[7] = toks[5];
-		time[8] = '\0';
-	}
-	else return 0;
-	
-	toks = strtok(NULL, ","); //next token is vakuduty
-	toks = strtok(NULL, ","); //next token is latitude may be of use later for first fix
-	toks = strtok(NULL, ","); //next token is N/S
-	toks = strtok(NULL, ","); //next token is longitude
-	toks = strtok(NULL, ","); //next token is E/W
-	toks = strtok(NULL, ","); //next token is knots
-	toks = strtok(NULL, ","); //next token is course
-	toks = strtok(NULL, ","); //next token is date
-	if (toks != NULL) {
-		date[0] = '2';
-		date[1] = '0';
-		date[2] = toks[4];
-		date[3] = toks[5];
-		date[4] = toks[2];
-		date[5] = toks[3];
-		date[6] = toks[0];
-		date[7] = toks[1];
-		date[8] = '\0';
-	}
-	else return 0;
-	printf("\n==============SET==============\nDATE:\n");
-	sprintf(cmd, "date +%%Y%%m%%d -s \"%s\"", date);
-	system(cmd);
-	printf("TIME:\n");
-	sprintf(cmd, "date +%%H:%%M:%%S -s \"%s\"", time);
-	system(cmd);
-	printf("===============================\n");
-	fclose(fstream);
-	return 1;
-}
-
-void RPi_USBGPSread(char USBdev, struct GPSdata *GPS_dev) {
-	char path[30];
-	char gpsbuffer[1024] = {0};
-	char *toks = NULL;
-	
-	snprintf(path, 30, "/dev/ttyUSB%d", USBdev);
-	FILE *fstream = fopen(path, "r");
-	
-	if (fstream == NULL) {
-		ge_warn(1, "GPIO.h", "Unable to open GPS port for reading! Retrying...");
-		return;
-	}
-	
-	while(!(fgets(gpsbuffer, 1024, fstream) == NULL)) {
-		if (gpsbuffer[0] == '$') {
-			if (memcmp(gpsbuffer+1, "GPGGA", 5) == 0) break;
-		}
-	}
-	toks = strtok(gpsbuffer, ","); //tokenize the string. First token is the GPS flag
-	toks = strtok(NULL, ","); //next token is time
-	toks = strtok(NULL, ","); //next token is latitude
-	if (toks != NULL) {
-		(*GPS_dev).latitude_d = (int)(atoi(toks) / 100); //truncate the minutes off the degrees
-		(*GPS_dev).latitude_m = (atof(toks) - (*GPS_dev).latitude_d * 100); //remove the degrees off the minutes
-	}
-	toks = strtok(NULL, ","); //next token is latitude direction char
-	if (toks != NULL) (*GPS_dev).latitude_dir = toks[0];
-	toks = strtok(NULL, ","); //next token is longitude
-	if (toks != NULL) {
-		(*GPS_dev).longitude_d = (int)(atoi(toks) / 100); //truncate the minutes off the degrees
-		(*GPS_dev).longitude_m = (atof(toks) - (*GPS_dev).longitude_d * 100); //remove the degrees off the minutes
-	}
-	toks = strtok(NULL, ","); //next token is longitude direction char
-	if (toks != NULL) (*GPS_dev).longitude_dir = toks[0];
-	toks = strtok(NULL, ","); //next token is quality
-	if (toks != NULL) (*GPS_dev).fix_quality = atoi(toks);
-	toks = strtok(NULL, ","); //next token is number of satalites
-	if (toks != NULL) (*GPS_dev).num_sats = atoi(toks);
-	toks = strtok(NULL, ","); //next token is HDOP
-	if (toks != NULL) (*GPS_dev).HDOP_acc = atoi(toks);
-	toks = strtok(NULL, ","); //next token is Raw Altitude
-	if (toks != NULL) (*GPS_dev).altitude_raw = atof(toks);
-	toks = strtok(NULL, ","); //next token is Raw Altitude unit
-	if (toks != NULL) (*GPS_dev).altitude_rawUNIT = toks[0];
-	toks = strtok(NULL, ","); //next token is Geoidal Separation
-	if (toks != NULL) (*GPS_dev).geoidal_sep = atof(toks);
-	toks = strtok(NULL, ","); //next token is Geoidal separation unit
-	if (toks != NULL) (*GPS_dev).geoidal_sepUNIT = toks[0];
-	
-	(*GPS_dev).actual_alt = ((*GPS_dev).altitude_raw + (*GPS_dev).geoidal_sep);
-	printf("|| GPS1: LT:%dd%.2f'%c LG:%dd%.2f'%c AT:%.2f%c SAT:%d QUA:%d HDOP:%.2f\n", (*GPS_dev).latitude_d, (*GPS_dev).latitude_m, 
-	(*GPS_dev).latitude_dir, (*GPS_dev).longitude_d, (*GPS_dev).longitude_m, (*GPS_dev).longitude_dir, (*GPS_dev).actual_alt, 
-	(*GPS_dev).altitude_rawUNIT, (*GPS_dev).num_sats, (*GPS_dev).fix_quality, (*GPS_dev).HDOP_acc);
-	fclose(fstream);
-}
-
-void RPi_deprecated_humistor(struct Humistor *humistor1) {
-	struct timespec sleep_time;
-		sleep_time.tv_sec = HUMISTOR_SLPSEC;
-		sleep_time.tv_nsec = HUMISTOR_SLPNSC * HUMISTOR_CRCNSC;  //APPLY A CORRECTION FACTOR TO COMPENSATE FOR RASPI TIME LOSSES
-	printf("%lu", sleep_time.tv_nsec);
-	/*
-struct Humistor {
-	struct timespec start_meas;
-	struct timespec end_meas;
-	unsigned long elapsed_us;
-	float voltage_initial;
-	float voltage;
-	float capacitance_uf;
-	float humidex;
-	unsigned short ADC;
-	unsigned short ADC_initial;
-	unsigned long parses;
-};
-	unsigned long t_esecs;
-	unsigned long t_ensec;
-	struct timespec sleep_time;
-	sleep_time.tv_sec = 0;
-	sleep_time.tv_nsec = 1000000;
-	(*humistor1).parses = 0; //set the parses to zero
-	double capacitance_alt;
-	double capacitance_alt2;
-	
-	clock_gettime(CLOCK_MONOTONIC, &((*humistor1).start_meas)); //record the current time, for humistor
-	(*humistor1).ADC_initial = MCP3008_SingleEndedRead(HUMISTOR_CH); //store the initial voltage at humistor (should be zero)
-	do {
-		(*humistor1).ADC = MCP3008_SingleEndedRead(HUMISTOR_CH);
-		(*humistor1).voltage = ((*humistor1).ADC*REF_VOLTAGE)/1024;
-		clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep_time, NULL);
-		//printf("%f \n", (*humistor1).voltage);
-		(*humistor1).parses++;
-	} while ((*humistor1).voltage < (3.3*(1 - exp(-1))));
-	clock_gettime(CLOCK_MONOTONIC, &((*humistor1).end_meas)); //record the current time.
-	
-	************************************************************
-	************ PROCESS DATA FROM HUMISTOR ********************
-	************************************************************
-	(*humistor1).voltage_initial = ((*humistor1).ADC_initial*REF_VOLTAGE)/1024;
-	t_esecs = ((*humistor1).end_meas.tv_sec - (*humistor1).start_meas.tv_sec);
-	t_ensec = ((*humistor1).end_meas.tv_nsec - (*humistor1).start_meas.tv_nsec);
-	(*humistor1).elapsed_us = ((t_esecs * 1000000) + (t_ensec / 1000) + 0.5);
-	(*humistor1).capacitance_uf = (((*humistor1).elapsed_us / (float)HUMISTOR_R1) - //must scale capacitance to compensate for sampling losses
-		(0)); // quick sampling consumes power, use of high ohm resistor makes this matter
-	printf("%ld \n", (*humistor1).parses);
-	capacitance_alt = (*humistor1).capacitance_uf * exp(-(((*humistor1).parses) / (1 + (*humistor1).parses + ((sleep_time.tv_nsec) / ((*humistor1).parses)))));
-	capacitance_alt2 = (*humistor1).capacitance_uf - (*humistor1).capacitance_uf * (((*humistor1).parses) / ((*humistor1).parses + (1000000000/sleep_time.tv_nsec) * pow((sleep_time.tv_nsec / (*humistor1).parses), 0.36737)));
-	printf("|| HUMIS1: %.2fVi %fVf %.2fVt %ldus %.2fuf %.2lfuf1 %.2lfuf2 %dADC\n", (*humistor1).voltage_initial, (*humistor1).voltage, 
-		(3.3*(1 - exp(-1))), (*humistor1).elapsed_us, (*humistor1).capacitance_uf, capacitance_alt, capacitance_alt2, (*humistor1).ADC);
-	
-	/
-	(*humistor1).start_meas = (*humistor1).end_meas;
-	clock_gettime(CLOCK_MONOTONIC, &((*humistor1).end_meas));
-	printf("%u.%u diff: %u\n", (unsigned int)(*humistor1).end_meas.tv_sec, (unsigned int)(*humistor1).end_meas.tv_nsec, ((unsigned int)(*humistor1).end_meas.tv_nsec-(unsigned int)(*humistor1).start_meas.tv_nsec));
-	*/	
-	
-	/* MORE DEPRECATED CODE:
-	(*humistor1).ADC_initial = MCP3008_SingleEndedRead(HUMISTOR_CH); //store the initial voltage at humistor (should be zero)
-	clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep_time, NULL);
-	(*humistor1).ADC = MCP3008_SingleEndedRead(HUMISTOR_CH);
-	
-	//calcs the data
-	(*humistor1).voltage_initial = ((*humistor1).ADC_initial*REF_VOLTAGE)/1024;
-	(*humistor1).voltage = ((*humistor1).ADC*REF_VOLTAGE)/1024;
-	//(*humistor1).capacitance_uf = (sleep_time.tv_sec * 1000000 + sleep_time.tv_nsec/1000) / 
-	//	(-log((REF_VOLTAGE - ((*humistor1).voltage)) / REF_VOLTAGE) * (float)HUMISTOR_R1);
-	(*humistor1).capacitance_pf = (sleep_time.tv_nsec*1000) / 
-		(-log((REF_VOLTAGE - ((*humistor1).voltage)) / REF_VOLTAGE) * (float)HUMISTOR_R1);
-	(*humistor1).humidex = ((*humistor1).capacitance_pf - 298) / 0.6;
-	printf("|| HUMIS1: %.2fVi %.2fVf %.1fpf %dADCi %dADC\n", (*humistor1).voltage_initial, (*humistor1).voltage, 
-		(*humistor1).capacitance_pf, (*humistor1).ADC_initial, (*humistor1).ADC); 
-	*/
+	(*MQ7_1).voltage = ((*MQ7_1).ADC*REF_VOLTAGE)/1024;
+	(*MQ7_1).resistance = ((1024.0/(*MQ7_1).ADC - 1.0)*MQ7_1R1);
+	(*MQ7_1).ratio = (*MQ7_1).resistance / MQ7_1Ro;
+	printf("|| MQ7: %.2fV %.2fR %.2f %d\n", (*MQ7_1).voltage, (*MQ7_1).resistance, 1/(*MQ7_1).ratio, (*MQ7_1).ADC);
+	//equation estimated to be LOG(PPM) = -1.43 * log(RS/RO) + 1.94
+	//gives y = 10^(-1.43 * log(RS/RO) + 1.94)
+	(*MQ7_1).PPM = pow(10, (-1.43 * log10f((*MQ7_1).ratio) + 1.94));
 }
 
 void RPi_generaltest() {
-	
-	sleep(1);
-	
-	sleep(1);
+	SENSORS_ON
+	SENSORS_OFF
 }
 
 //keyboard hit detection function from http://cc.byexamples.com/2007/04/08/non-blocking-user-input-in-loop-without-ncurses/
@@ -320,7 +143,7 @@ int kbhit()
 //Things that the RPi must load at the start
 void RPi_construct(char USBdev) {
 	char cmd[30];
-	char status;
+	int status;
 	char upath[30];
 	FILE *fstream;
 	printf("Intializing... \n");
@@ -347,16 +170,24 @@ void RPi_construct(char USBdev) {
 	MCP3008_OPEN(THERMISTOR1_CH,MCP3008_SPD);
 	printf("Success!\n");
 	
+	printf("I2C Bus... ");
+	NAU7802_OPEN();
+	printf("Success!\n");
+	
+	printf("NAU6702... ");
+	printf("Calibration returned code 0x%02x... OK!\n", NAU7802_PowerUp());
+	
 	printf("GPIO%d... ", THERMISTORS_GPIOPIN);
 	GPIOexport(THERMISTORS_GPIOPIN); //enable GPIO pin for turning the sensors on and off
 	GPIOdirection(THERMISTORS_GPIOPIN, OUT);
 	printf("Success!\n");
 	
+	/*
 	printf("GPIO%d... ", RESET_PIN);
 	GPIOexport(RESET_PIN);
 	GPIOdirection(RESET_PIN, OUT);
 	printf("Success!\n");
-	
+	*/
 	printf("\nSetup complete!\n\n");
 }
 
@@ -364,14 +195,22 @@ void RPi_construct(char USBdev) {
 void RPi_destruct() {
 	printf("Halting... ");
 	
-	MCP3008_CLOSE(THERMISTOR1_CH);
 	printf("MCP3008... ");
+	MCP3008_CLOSE(THERMISTOR1_CH);
 	
-	GPIOunexport(THERMISTORS_GPIOPIN);
+	printf("NAU6702... ");
+	printf("Returned code 0x%02x... OK!\n", NAU7802_PowerDown());
+	
+	printf("I2C Bus... ");
+	NAU7802_CLOSE();
+	
 	printf("GPIO%d... ", THERMISTORS_GPIOPIN);
-	
-	GPIOunexport(RESET_PIN);
+	GPIOunexport(THERMISTORS_GPIOPIN);
+	/*
 	printf("GPIO%d... ", RESET_PIN);
-	
+	GPIOunexport(RESET_PIN);
+	*/
 	printf("Done!\n");
 }
+
+#endif //end of include block

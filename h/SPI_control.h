@@ -42,10 +42,10 @@ int SPIc_open (unsigned char device, unsigned int speed) {
     spi_mode = SPI_MODE_0;
     spi_bitsPerWord = 8;
     
-    if (!speed) spi_speed = 500000;  //1MHZ = 1E6; speed can be 0.5, 1, 2, 4, 8, 16, 32
-    else spi_speed = speed*1000000;
+    if (!speed) spi_speed = 500000;  //1MHZ = 1E6; speed can be 0.5, 1, 2, 4, 8, 16, 32 MHZ speed taken is in KHz
+    else spi_speed = speed*1000;
     
-    if (!device) spi_cs_fd = &spi_cs0_fd;
+    if (!device) spi_cs_fd = &spi_cs0_fd; //select the correct SPI channel
 	else spi_cs_fd = &spi_cs1_fd;
 	
 	if (!device) *spi_cs_fd = open("/dev/spidev0.0", O_RDWR);
