@@ -1,24 +1,33 @@
-/* GPIO Control <SOURCE>
+/* GPIO Control
  * based on http://elinux.org/RPi_Low-level_peripherals#C_2
  * This header file contains commands to interact with the GPIO. The functions in this file
  * do the same basic tasks that a user can do from the command prompt to control the GPIO.
  * Contains the following functions:
- *  	GPIOexport: sets up the GPIO pin so that it can be used. 
- *  	GPIOunexport: closes the GPIO pin after use is done.
- *  	GPIOdirection: sets whether the pin is an in or out pin.
- *  	GPIOread: reads the status of the pin.
- *  	GPIOwrite: sends a high or low signal out the GPIO.
+ *  GPIOexport: sets up the GPIO pin so that it can be used. 
+ *  GPIOunexport: closes the GPIO pin after use is done.
+ *  GPIOdirection: sets whether the pin is an in or out pin.
+ *  GPIOread: reads the status of the pin.
+ *  GPIOwrite: sends a high or low signal out the GPIO.
  * 
  * Version 0.1
- * GCC:
  */
 
-#include "GPIO.h"
+#ifndef RPi_GPIO
+#define RPi_GPIO
+
 #include "RPi_generror.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+#define IN 0
+#define OUT 1
+#define ON 1
+#define OFF 0
+#define MAX_BUFFER 3
+#define DIRECTION_MAX 35
+#define VALUE_MAX 30
 
 void GPIOexport(unsigned char GPIOpin) {
 	char buffer[MAX_BUFFER];
@@ -104,3 +113,5 @@ void GPIOwrite(unsigned char GPIOpin, unsigned char value) {
 	if (write(afile, &s_values_str[OFF == value ? 0 : 1], 1) < 0) ge_halt(1, "GPIO.h", "Unable to write GPIO!");
 	close(afile);
 }
+
+#endif //RPi_GPIO

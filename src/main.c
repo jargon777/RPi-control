@@ -4,13 +4,16 @@
  * Program contains main methods for RasPi operations. At the moment this is nothing but a testing ground.
  * 
  * Depends on: libjpeg8-dev, and an openVG api included in this set: git://github.com/ajstarks/openvg
- * Compile: gcc -Wall -I../h -I../lib/openvg -I/opt/vc/include -I/opt/vc/include/interface/vcos/pthreads -I/usr/include -c "%f" ../lib/openvg/libshapes.o ../lib/openvg/oglinit.o -L/opt/vc/lib -lGLESv2 -ljpeg
- * Build: gcc -Wall -I../h -I/opt/vc/include -I/opt/vc/include/interface/vcos/pthreads -I../lib/openvg -I/usr/include -o "%e" "%f" ../lib/openvg/libshapes.o ../lib/openvg/oglinit.o -L/opt/vc/lib -lGLESv2 -ljpeg
+ * General Compile: gcc -c -Wall -I../h -I/opt/vc/include -I/opt/vc/include/interface/vcos/pthreads -I../lib/openvg -I/usr/include %f
+ * Build: gcc -Wall -I../h -I/opt/vc/include -I/opt/vc/include/interface/vcos/pthreads -I../lib/openvg -I/usr/include -o "%e" "%f" RPi_screen.o RPi_general.o GPIO.o SPI_control.o RPi_USBGPS.o RPi_generror.o ../lib/openvg/libshapes.o ../lib/openvg/oglinit.o -L/opt/vc/lib -lGLESv2 -ljpeg
  * 
  */
 #include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
 #include "RPi_general.h"
 #include "RPi_screen.h"
+#include "RPi_USBGPS.h"
 
 #define GPS_USBID 0
 struct Thermistor thermistor1, thermistor2, thermistor3;

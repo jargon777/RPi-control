@@ -10,12 +10,29 @@
  *  GPIOwrite: sends a high or low signal out the GPIO.
  * 
  * Version 0.1
- * GCC: gcc -Wall -I../h -I/opt/vc/include -I/usr/include -o %e.o
  */
+#ifndef RPi_USBGPS
+#define RPi_USBGPS
 
-#include "RPi_USBGPS.h"
 #include "RPi_generror.h"
 #include <string.h>
+
+struct GPSdata {
+	short longitude_d;
+	float longitude_m;
+	char longitude_dir;
+	short latitude_d;
+	float latitude_m;
+	char latitude_dir;
+	char fix_quality;
+	char num_sats;
+	float HDOP_acc;
+	float altitude_raw;
+	char altitude_rawUNIT;
+	float geoidal_sep; 
+	char geoidal_sepUNIT;
+	float actual_alt;
+};
 
 int RPi_USBGPSset_time(char USBdev){
 	char path[30];
@@ -134,3 +151,5 @@ void RPi_USBGPSread(char USBdev, struct GPSdata *GPS_dev) {
 	(*GPS_dev).altitude_rawUNIT, (*GPS_dev).num_sats, (*GPS_dev).fix_quality, (*GPS_dev).HDOP_acc);
 	fclose(fstream);
 }
+
+#endif //wrapper define
