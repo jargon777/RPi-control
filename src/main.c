@@ -39,7 +39,6 @@ int main() {
 	RPi_construct(GPS_USBID); //general function for starting tasks
 	RPi_Graphics_Init(&(Screen_Main.width), &(Screen_Main.height));
 	char gen[3];
-	
 	do {
 		printf("\nRECORD: %d\n", record_count);
 		/**********************************************************************************/
@@ -63,6 +62,7 @@ int main() {
 		/**********************************************************************************/
 		/**************** FINAL STEPS *****************************************************/
 		/**********************************************************************************/
+		RPi_writeToFile(&thermistor1, &thermistor2, &thermistor3, &MQ7_1, &humistor1, &GPS_1);
 		//sleep(2);
 		record_count++;
 		

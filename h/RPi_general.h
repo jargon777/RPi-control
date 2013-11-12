@@ -9,6 +9,9 @@
 #ifndef RPi_GENERALHEADER
 #define RPi_GENERALHEADER
 
+//INCLUDES
+#include "RPi_USBGPS.h"
+
 //DEFINES
 #define REF_VOLTAGE 2.6
 #define NAU7802_REFVOLTS 3.3
@@ -68,6 +71,10 @@ struct Humistor {
 //FUNCTIONS
 void RPi_ADCread_sensors(struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct Thermistor *thermistor3,
 							struct GasSensor *MQ7_1, struct Humistor *humistor1);
+void RPi_writeFileHeader ();
+void RPi_writeToFile (struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct Thermistor *thermistor3,
+							struct GasSensor *MQ7_1, struct Humistor *humistor1, struct GPSdata *GPS1);
+
 //keyboard hit detection function from http://cc.byexamples.com/2007/04/08/non-blocking-user-input-in-loop-without-ncurses/
 int kbhit();
 

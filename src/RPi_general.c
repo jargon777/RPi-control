@@ -65,6 +65,30 @@ void RPi_ADCread_sensors(struct Thermistor *thermistor1, struct Thermistor *ther
 	(*MQ7_1).PPM = pow(10, (-1.43 * log10f((*MQ7_1).ratio) + 1.94));
 }
 
+void RPi_writeFileHeader () {
+	char path[30];
+	FILE *csvFile;
+	
+	snprintf(path, 30, "../out/OUT%d.csv", 1);
+	csvFile = fopen(path, "a");
+	fprintf(csvFile, "T1_RES,T1_TMP,T2_RES,T2_TMP,MQ7_RES,MQ7_PPM,LONG,LONG_D,LAT,LAT_D");
+	fclose(csvFile);
+}
+
+void RPi_writeToFile (struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct Thermistor *thermistor3,
+							struct GasSensor *MQ7_1, struct Humistor *humistor1, struct GPSdata *GPS1) {
+	char path[30];
+	FILE *csvFile;
+	
+	snprintf(path, 30, "../out/OUT%d.csv", 1);
+	csvFile = fopen(path, "a");
+	fprintf(csvFile, "%f,%f,%f,%f,%f,%f,%f,%c,%f,%c", (*thermistor1).resistance, (*thermistor1).temperature, 
+		(*thermistor2).resistance, (*thermistor2).temperature, (*MQ7_1).resistance, (*MQ7_1).PPM, 
+		((float)(*GPS1).longitude_d + (*GPS1).longitude_m/60),  (*GPS1).longitude_dir,
+		((float)(*GPS1).latitude_d + (*GPS1).latitude_m/60), (*GPS1).latitude_dir);
+	fclose(csvFile);
+}
+
 //keyboard hit detection function from http://cc.byexamples.com/2007/04/08/non-blocking-user-input-in-loop-without-ncurses/
 int kbhit()
 {
@@ -91,7 +115,11 @@ void RPi_construct(char USBdev) {
 	do {
 		fstream = fopen(upath, "r");
 		if (fstream == NULL) printf("Failed to access GPS on %s! Check GPS! \n", upath);
-		else break;
+		else {
+			fclose(fstream);
+			break;
+		}
+		fclose(fstream);
 		sleep(2);
 	} while (fstream == NULL);
 	sprintf(cmd, "stty -F /dev/ttyUSB%d %d sane \n", USBdev, GPSBAUD); //ensure that the gps is setup correctly.
@@ -120,6 +148,9 @@ void RPi_construct(char USBdev) {
 	GPIOdirection(THERMISTORS_GPIOPIN, OUT);
 	printf("Success!\n");
 	
+	printf("Creating CSV File... ");
+	RPi_writeFileHeader();
+	printf("Success!\n");
 	/*
 	printf("GPIO%d... ", RESET_PIN);
 	GPIOexport(RESET_PIN);
