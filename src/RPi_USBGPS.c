@@ -16,6 +16,9 @@
 #include "RPi_USBGPS.h"
 #include "RPi_generror.h"
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 
 int RPi_USBGPSset_time(char USBdev){
 	char path[30];
@@ -83,6 +86,14 @@ void RPi_USBGPSread(char USBdev, struct GPSdata *GPS_dev) {
 	char path[30];
 	char gpsbuffer[1024] = {0};
 	char *toks = NULL;
+	float longitude_dOLD;
+	float latitude_dOLD;
+	struct timeval prev_time_var;
+	float timechange;
+	float dlong;
+	float dlati;
+	float temp;
+	float earth_rad = 6371; //km
 	
 	snprintf(path, 30, "/dev/ttyUSB%d", USBdev);
 	FILE *fstream = fopen(path, "r");
@@ -99,8 +110,21 @@ void RPi_USBGPSread(char USBdev, struct GPSdata *GPS_dev) {
 	}
 	toks = strtok(gpsbuffer, ","); //tokenize the string. First token is the GPS flag
 	toks = strtok(NULL, ","); //next token is time
+	if (toks != NULL) {
+		prev_time_var = (*GPS_dev).time_var;
+		gettimeofday(&((*GPS_dev).time_var), NULL); //convert time to int
+		(*GPS_dev).zulu_timeSTR[0] = toks[0];
+		(*GPS_dev).zulu_timeSTR[1] = toks[1];
+		(*GPS_dev).zulu_timeSTR[2] = ':';
+		(*GPS_dev).zulu_timeSTR[3] = toks[2];
+		(*GPS_dev).zulu_timeSTR[4] = toks[3];
+		(*GPS_dev).zulu_timeSTR[5] = ':';
+		(*GPS_dev).zulu_timeSTR[6] = toks[4];
+		(*GPS_dev).zulu_timeSTR[7] = toks[5];
+	}
 	toks = strtok(NULL, ","); //next token is latitude
 	if (toks != NULL) {
+		latitude_dOLD = (float)(*GPS_dev).latitude_d + (*GPS_dev).latitude_m/60.0;
 		(*GPS_dev).latitude_d = (int)(atoi(toks) / 100); //truncate the minutes off the degrees
 		(*GPS_dev).latitude_m = (atof(toks) - (*GPS_dev).latitude_d * 100); //remove the degrees off the minutes
 	}
@@ -108,6 +132,7 @@ void RPi_USBGPSread(char USBdev, struct GPSdata *GPS_dev) {
 	if (toks != NULL) (*GPS_dev).latitude_dir = toks[0];
 	toks = strtok(NULL, ","); //next token is longitude
 	if (toks != NULL) {
+		longitude_dOLD = (float)(*GPS_dev).longitude_d + (*GPS_dev).longitude_m/60.0;
 		(*GPS_dev).longitude_d = (int)(atoi(toks) / 100); //truncate the minutes off the degrees
 		(*GPS_dev).longitude_m = (atof(toks) - (*GPS_dev).longitude_d * 100); //remove the degrees off the minutes
 	}
@@ -128,9 +153,20 @@ void RPi_USBGPSread(char USBdev, struct GPSdata *GPS_dev) {
 	toks = strtok(NULL, ","); //next token is Geoidal separation unit
 	if (toks != NULL) (*GPS_dev).geoidal_sepUNIT = toks[0];
 	
+	dlong = (fabsf(((float)(*GPS_dev).longitude_d + (*GPS_dev).longitude_m/60.0) - longitude_dOLD)*M_PI)/180.0;
+	dlati = (fabsf(((float)(*GPS_dev).latitude_d + (*GPS_dev).latitude_m/60.0) - latitude_dOLD)*M_PI)/180.0;
+	temp = ((float)(*GPS_dev).latitude_d + (*GPS_dev).latitude_m/60.0)*M_PI/180.0;
+	latitude_dOLD = latitude_dOLD*M_PI/180.0;
+	temp = sinf(dlati/2.0) * sinf(dlati/2.0) + sinf(dlong/2.0) * sinf(dlong/2.0) * cosf(latitude_dOLD) * cosf(temp);
+	temp = 2.0 * atan2f(sqrtf(temp), sqrtf(1.0-temp)); 
+	temp = temp * earth_rad;
+	timechange = (fabsf(((*GPS_dev).time_var.tv_sec & 0b11111111111) + (float)((*GPS_dev).time_var.tv_usec / 1000000.0) -
+		((prev_time_var.tv_sec & 0b11111111111) + (float)(prev_time_var.tv_usec / 1000000.0))));
+	(*GPS_dev).speed = (temp / (timechange / 3600.0));
+	
 	(*GPS_dev).actual_alt = ((*GPS_dev).altitude_raw + (*GPS_dev).geoidal_sep);
-	printf("|| GPS1: LT:%dd%.2f'%c LG:%dd%.2f'%c AT:%.2f%c SAT:%d QUA:%d HDOP:%.2f\n", (*GPS_dev).latitude_d, (*GPS_dev).latitude_m, 
-	(*GPS_dev).latitude_dir, (*GPS_dev).longitude_d, (*GPS_dev).longitude_m, (*GPS_dev).longitude_dir, (*GPS_dev).actual_alt, 
-	(*GPS_dev).altitude_rawUNIT, (*GPS_dev).num_sats, (*GPS_dev).fix_quality, (*GPS_dev).HDOP_acc);
+	printf("|| GPS1: LT:%dd%.2f'%c LG:%dd%.2f'%c AT:%.2f%c SAT:%d HDOP:%.2f SPD:%.2f\n", (*GPS_dev).latitude_d, (*GPS_dev).latitude_m, 
+		(*GPS_dev).latitude_dir, (*GPS_dev).longitude_d, (*GPS_dev).longitude_m, (*GPS_dev).longitude_dir, (*GPS_dev).actual_alt, 
+		(*GPS_dev).altitude_rawUNIT, (*GPS_dev).num_sats, (*GPS_dev).HDOP_acc, (*GPS_dev).speed);
 	fclose(fstream);
 }

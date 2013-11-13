@@ -23,8 +23,12 @@
 #define THERMISTOR2_CH 1
 #define THERMISTOR2_R1 200
 #define MQ7_1CH 2
-#define MQ7_1R1 33000
+#define MQ7_1R1 100000
 #define MQ7_1Ro 10000
+
+#define MQ2_1CH 3
+#define MQ2_1R1 33000
+#define MQ2_1Ro 10000
 
 #define GPSBAUD 4800
 
@@ -70,10 +74,10 @@ struct Humistor {
 
 //FUNCTIONS
 void RPi_ADCread_sensors(struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct Thermistor *thermistor3,
-							struct GasSensor *MQ7_1, struct Humistor *humistor1);
+							struct GasSensor *MQ7_1, struct GasSensor *MQ2_1, struct Humistor *humistor1);
 void RPi_writeFileHeader ();
 void RPi_writeToFile (struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct Thermistor *thermistor3,
-							struct GasSensor *MQ7_1, struct Humistor *humistor1, struct GPSdata *GPS1);
+							struct GasSensor *MQ7_1, struct GasSensor *MQ2_1, struct Humistor *humistor1, struct GPSdata *GPS1);
 
 //keyboard hit detection function from http://cc.byexamples.com/2007/04/08/non-blocking-user-input-in-loop-without-ncurses/
 int kbhit();

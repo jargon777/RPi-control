@@ -14,11 +14,9 @@
 #include "fontinfo.h"
 #include "shapes.h"
 
-#define SCALE_X 32
-#define SCALE_Y 32
-#define BARSCALE_X 150
 
-void RPi_GenerateScreen(struct ScreenData *Screen_Main, int records, struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct GasSensor *MQ7_1) {
+void RPi_GenerateScreen(struct ScreenData *Screen_Main, int records, struct Thermistor *thermistor1, 
+		struct Thermistor *thermistor2, struct GasSensor *MQ7_1, struct GasSensor *MQ2_1, struct Humistor *humistor1, struct GPSdata *GPS_1) {
 	int i;
 	char fstr[30];
 	VGfloat X_Coords[200];
@@ -29,11 +27,17 @@ void RPi_GenerateScreen(struct ScreenData *Screen_Main, int records, struct Ther
 	}
 	for (i = records; (i > 0); i--) { //shift the data in records by 1
 		(*Screen_Main).Data1_Yposi[i] = (*Screen_Main).Data1_Yposi[i-1];
+		
 		(*Screen_Main).Data3_Yposi[i] = (*Screen_Main).Data3_Yposi[i-1];
+		(*Screen_Main).Data4_Yposi[i] = (*Screen_Main).Data4_Yposi[i-1];
+		
+		(*Screen_Main).Data6_Yposi[i] = (*Screen_Main).Data6_Yposi[i-1];
 	}
 	//record new data
 	(*Screen_Main).Data1_Yposi[0] = (((*thermistor1).temperature + (*thermistor2).temperature) / 2.0 ) * 5 + SCALE_Y + 150;
 	(*Screen_Main).Data3_Yposi[0] = 1/(*MQ7_1).ratio * 100 + SCALE_Y + 30;
+	(*Screen_Main).Data4_Yposi[0] = 1/(*MQ2_1).ratio * 100 + SCALE_Y + 30;
+	(*Screen_Main).Data6_Yposi[0] = (*GPS_1).speed + SCALE_Y + 30;
 		
 	Start((*Screen_Main).width, (*Screen_Main).height);                   // Start the picture 720*480 but actual is 656x416 32 pixel padding?
 	Background(0, 0, 0);                    // Black background
@@ -51,6 +55,10 @@ void RPi_GenerateScreen(struct ScreenData *Screen_Main, int records, struct Ther
 	Polyline(X_Coords, (*Screen_Main).Data1_Yposi, records);
 	Stroke(0,255,0, 1);
 	Polyline(X_Coords, (*Screen_Main).Data3_Yposi, records);
+	Stroke(0,150,0, 1);
+	Polyline(X_Coords, (*Screen_Main).Data4_Yposi, records);
+	Stroke(0,0,255, 1);
+	Polyline(X_Coords, (*Screen_Main).Data6_Yposi, records);
 	
 	Fill(255, 0, 0, 1);
 	sprintf(fstr, "%.1fC", ((*thermistor1).temperature + (*thermistor2).temperature) / 2);
@@ -58,6 +66,12 @@ void RPi_GenerateScreen(struct ScreenData *Screen_Main, int records, struct Ther
 	Fill(0, 255, 0, 1);
 	sprintf(fstr, "%.1fPPM", (*MQ7_1).PPM);
 	Text((*Screen_Main).graph_display_Ox + 10, (*Screen_Main).Data3_Yposi[0], fstr, SansTypeface, 15);
+	Fill(0, 150, 0, 1);
+	sprintf(fstr, "%.1fPPM", (*MQ2_1).PPM);
+	Text((*Screen_Main).graph_display_Ox + 10, (*Screen_Main).Data4_Yposi[0], fstr, SansTypeface, 15);
+	Fill(0, 0, 255, 1);
+	sprintf(fstr, "%.1fkph", (*GPS_1).speed);
+	Text((*Screen_Main).graph_display_Ox + 100, (*Screen_Main).Data6_Yposi[0], fstr, SansTypeface, 15);
 	End();
 }
 void RPi_Graphics_Init(int *width, int *height) {

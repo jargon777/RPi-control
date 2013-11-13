@@ -14,6 +14,8 @@
 #ifndef RPi_USBGPS
 #define RPi_USBGPS
 
+#include <sys/time.h>
+
 struct GPSdata {
 	short longitude_d;
 	float longitude_m;
@@ -29,6 +31,10 @@ struct GPSdata {
 	float geoidal_sep; 
 	char geoidal_sepUNIT;
 	float actual_alt;
+	float speed;
+	float speedAngleFromNorth;
+	struct timeval time_var;
+	char zulu_timeSTR[8];
 };
 
 int RPi_USBGPSset_time(char USBdev);

@@ -21,7 +21,7 @@
 
 
 void RPi_ADCread_sensors(struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct Thermistor *thermistor3,
-							struct GasSensor *MQ7_1, struct Humistor *humistor1) {	
+							struct GasSensor *MQ7_1, struct GasSensor *MQ2_1, struct Humistor *humistor1) {	
 	int Ref_Voltage;
 	/************************************************************/
 	/******** READ DATA FROM SENSORS ****************************/
@@ -31,6 +31,7 @@ void RPi_ADCread_sensors(struct Thermistor *thermistor1, struct Thermistor *ther
 	(*thermistor1).ADC = MCP3008_SingleEndedRead(THERMISTOR1_CH);
 	(*thermistor2).ADC = MCP3008_SingleEndedRead(THERMISTOR2_CH);
 	(*MQ7_1).ADC = MCP3008_SingleEndedRead(MQ7_1CH);
+	(*MQ2_1).ADC = MCP3008_SingleEndedRead(MQ2_1CH);
 	//(*thermistor3).ADC = NAU7802_ReadADCTMP();
 	//Ref_Voltage = NAU7802_ReadADC();
 	SENSORS_OFF
@@ -63,6 +64,15 @@ void RPi_ADCread_sensors(struct Thermistor *thermistor1, struct Thermistor *ther
 	//equation estimated to be LOG(PPM) = -1.43 * log(RS/RO) + 1.94
 	//gives y = 10^(-1.43 * log(RS/RO) + 1.94)
 	(*MQ7_1).PPM = pow(10, (-1.43 * log10f((*MQ7_1).ratio) + 1.94));
+	
+	(*MQ2_1).voltage = ((*MQ2_1).ADC*REF_VOLTAGE)/1024;
+	(*MQ2_1).resistance = ((1024.0/(*MQ2_1).ADC - 1.0)*MQ2_1R1);
+	(*MQ2_1).ratio = (*MQ2_1).resistance / MQ2_1Ro;
+	printf("|| MQ2: %.2fV %.2fR %.2f %d\n", (*MQ2_1).voltage, (*MQ2_1).resistance, 1/(*MQ2_1).ratio, (*MQ2_1).ADC);
+	//equation estimated to be LOG(PPM) = -1.43 * log(RS/RO) + 1.94
+	//gives y = 10^(-1.43 * log(RS/RO) + 1.94)
+	(*MQ2_1).PPM = pow(10, (-1.43 * log10f((*MQ2_1).ratio) + 1.94));
+
 }
 
 void RPi_writeFileHeader () {
@@ -71,21 +81,29 @@ void RPi_writeFileHeader () {
 	
 	snprintf(path, 30, "../out/OUT%d.csv", 1);
 	csvFile = fopen(path, "a");
-	fprintf(csvFile, "T1_RES,T1_TMP,T2_RES,T2_TMP,MQ7_RES,MQ7_PPM,LONG,LONG_D,LAT,LAT_D");
+	fprintf(csvFile, "T1_RES,T1_TMP,T2_RES,T2_TMP,"); //temps
+	fprintf(csvFile, "MQ7_RES,MQ7_RATIO,MQ7_PPM,MQ2_RES,MQ2_RATIO,MQ2_PPM,"); //gasses
+	fprintf(csvFile, "LONG,LONG_D,LAT,LAT_D,SPEED,SPD_ANGNRTH,ALT,ALT_UN\n"); //gps
 	fclose(csvFile);
 }
 
 void RPi_writeToFile (struct Thermistor *thermistor1, struct Thermistor *thermistor2, struct Thermistor *thermistor3,
-							struct GasSensor *MQ7_1, struct Humistor *humistor1, struct GPSdata *GPS1) {
+							struct GasSensor *MQ7_1, struct GasSensor *MQ2_1, struct Humistor *humistor1, struct GPSdata *GPS1) {
 	char path[30];
 	FILE *csvFile;
 	
 	snprintf(path, 30, "../out/OUT%d.csv", 1);
 	csvFile = fopen(path, "a");
-	fprintf(csvFile, "%f,%f,%f,%f,%f,%f,%f,%c,%f,%c", (*thermistor1).resistance, (*thermistor1).temperature, 
-		(*thermistor2).resistance, (*thermistor2).temperature, (*MQ7_1).resistance, (*MQ7_1).PPM, 
-		((float)(*GPS1).longitude_d + (*GPS1).longitude_m/60),  (*GPS1).longitude_dir,
-		((float)(*GPS1).latitude_d + (*GPS1).latitude_m/60), (*GPS1).latitude_dir);
+	//temperatures
+	fprintf(csvFile, "%f,%f,%f,%f,", (*thermistor1).resistance, (*thermistor1).temperature, 
+		(*thermistor2).resistance, (*thermistor2).temperature);
+	//gases
+	fprintf(csvFile, "%f,%f,%f,%f,", (*MQ7_1).resistance, (*MQ7_1).PPM,
+		(*MQ2_1).resistance, (*MQ2_1).PPM);
+	//gps
+	fprintf(csvFile, "%f,%c,%f,%c,%f,%f,%f,%c\n", ((float)(*GPS1).longitude_d + (*GPS1).longitude_m/60),  (*GPS1).longitude_dir,
+		((float)(*GPS1).latitude_d + (*GPS1).latitude_m/60), (*GPS1).latitude_dir, (*GPS1).speed, (*GPS1).speedAngleFromNorth, 
+		(*GPS1).altitude_raw, (*GPS1).altitude_rawUNIT);
 	fclose(csvFile);
 }
 
