@@ -82,7 +82,7 @@ void RPi_writeFileHeader () {
 	snprintf(path, 30, "../out/OUT%d.csv", 1);
 	csvFile = fopen(path, "a");
 	fprintf(csvFile, "T1_RES,T1_TMP,T2_RES,T2_TMP,"); //temps
-	fprintf(csvFile, "MQ7_RES,MQ7_RATIO,MQ7_PPM,MQ2_RES,MQ2_RATIO,MQ2_PPM,"); //gasses
+	fprintf(csvFile, "MQ7_RES,MQ7_PPM,MQ2_RES,MQ2_PPM,"); //gasses
 	fprintf(csvFile, "LONG,LONG_D,LAT,LAT_D,SPEED,SPD_ANGNRTH,ALT,ALT_UN\n"); //gps
 	fclose(csvFile);
 }
