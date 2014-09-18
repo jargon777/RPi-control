@@ -4,6 +4,10 @@ This program is designed to interface a Raspberry Pi with a number of sensors. F
 Files can generally stand on their own, but all user-made files at least require the RPi_generror.h file to interact with error handling.
 At the moment, this program is albe to read data from a few thermistors using an ADC.
 
+main-console.c
+-----------
+Source file for outputting to console instead of drawing on screen.
+
 main.c
 -----------
 Source file containing all main methods
