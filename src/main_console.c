@@ -21,7 +21,6 @@ struct GasSensor MQ7_1;
 struct GasSensor MQ2_1;
 struct Humistor humistor1;
 struct GPSdata GPS_1;
-struct ScreenData Screen_Main;
 int record_count;
 
 unsigned long long getMemoryAvailable() {
