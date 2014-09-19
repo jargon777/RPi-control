@@ -13,6 +13,8 @@
  * GCC: gcc -Wall -I../h -I/opt/vc/include -I/usr/include -o %e.o
  */
 
+#define USB_PATH "/dev/ttyUSB%d" //the USB path variable. Should one day be included in main.
+
 #include "RPi_USBGPS.h"
 #include "RPi_generror.h"
 #include <string.h>
@@ -28,7 +30,7 @@ int RPi_USBGPSset_time(char USBdev){
 	char date[9];
 	char *toks = NULL;
 	
-	snprintf(path, 30, "/dev/ttyUSB%d", USBdev);
+	snprintf(path, 30, USB_PATH, USBdev);
 	FILE *fstream = fopen(path, "r");
 	while(!(fgets(gpsbuffer, 1024, fstream) == NULL)) {
 		printf(".");
@@ -95,7 +97,7 @@ void RPi_USBGPSread(char USBdev, struct GPSdata *GPS_dev) {
 	float temp;
 	float earth_rad = 6371; //km
 	
-	snprintf(path, 30, "/dev/ttyUSB%d", USBdev);
+	snprintf(path, 30, USB_PATH, USBdev);
 	FILE *fstream = fopen(path, "r");
 	
 	if (fstream == NULL) {
