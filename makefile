@@ -5,7 +5,7 @@ ODIR = obj
 HDIR = h
 LDIR = lib
 SDIR = src
-LIBS = -lGLESv2 -ljpeg
+LIBS = -lGLESv2 -ljpeg -lm
 
 EXEC = main_console
 OBJS = GPIO.o main_console.o RPi_general.o RPi_generror.o RPi_USBGPS.o SPI_control.o
