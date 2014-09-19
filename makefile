@@ -35,7 +35,7 @@ clean:
 	$(RM) -f $(EXEC)
 	@echo Cleaned results of make.
 	
-cleanmake:
+clnmk:
 	$(RM) -fdr $(ODIR) 
 	$(RM) -f $(EXEC)
 	make
