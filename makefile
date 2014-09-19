@@ -23,7 +23,10 @@ $(EXEC): $(OBJP)
 
 $(shell mkdir -p $(ODIR))
 
+
 .PHONY: clean
+.PHONY: help
+.PHONY: clnmk
 
 help:
 	@echo Options:
